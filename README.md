@@ -38,11 +38,11 @@ The script guides you through:
 
 ## How to Use
 
-1. **Clone the Repository:**
+1. **Clone the Repository and move the script file to Home:**
 
    ```bash
-   git clone https://github.com/yourusername/your-repo-name.git
-   cd your-repo-name
+   git clone git@github.com:kudwalli/setup.git
+   mv setup/setup.sh ~
    ```
 
 2. **Make the Script Executable:**
