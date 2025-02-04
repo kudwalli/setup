@@ -1,4 +1,54 @@
 #!/usr/bin/env bash
+#===============================================================================
+# Comprehensive Setup Script with Error Handling and Retry/Skip Mechanism
+#===============================================================================
+
+# Enable extended error tracing (so functions inherit our trap)
+set -o errtrace
+
+#------------------------------------------------------------------------------
+# Global Error Trap: When any command returns a nonzero exit status,
+# print an error message with the line and command, and wait for the user.
+#------------------------------------------------------------------------------
+error_trap() {
+  local last_line=$1
+  local last_command=$2
+  echo "--------------------------------------------------"
+  echo "ERROR encountered at line ${last_line}:"
+  echo "   Command: ${last_command}"
+  echo "--------------------------------------------------"
+  read -rp "Press ENTER to resume (or Ctrl-C to abort)..." dummy
+}
+trap 'error_trap ${LINENO} "$BASH_COMMAND"' ERR
+
+#------------------------------------------------------------------------------
+# safe_call: Wrap any function call so that if it returns a nonzero code,
+# the user is prompted to retry the function or skip that step.
+#
+# Usage:
+#   safe_call function_name [arguments...]
+#------------------------------------------------------------------------------
+safe_call() {
+  local func="$1"
+  shift
+  while true; do
+    # Call the function with any passed arguments.
+    "$func" "$@"
+    local ret=$?
+    if [ $ret -eq 0 ]; then
+      break
+    else
+      echo "--------------------------------------------------"
+      echo "The step '$func' returned an error (exit code: $ret)."
+      read -rp "Press ENTER to retry, or type 'skip' to skip this step: " choice
+      if [[ "$choice" == "skip" ]]; then
+        echo "Skipping step '$func' as per your input."
+        break
+      fi
+      echo "Retrying '$func'..."
+    fi
+  done
+}
 
 #######################################
 # Universal utility functions
@@ -28,6 +78,7 @@ generate_ssh_key() {
   echo "================================================"
   cat "$HOME/.ssh/id_rsa.pub"
   echo "================================================"
+  return 0
 }
 
 clone_projects() {
@@ -35,7 +86,7 @@ clone_projects() {
   echo "Cloning projects..."
   echo "Making Projects folder in $HOME/Projects..."
   mkdir -p "$HOME/Projects"
-  cd "$HOME/Projects" || exit 1
+  cd "$HOME/Projects" || return 1
 
   echo ""
   echo "Which projects would you like to clone? (enter multiple numbers, space-separated)"
@@ -65,11 +116,8 @@ clone_projects() {
   done
 
   echo "Done cloning projects."
+  return 0
 }
-
-#######################################
-# Post-clone Docker Build (Developer only)
-#######################################
 
 build_docker_projects() {
   echo "========================================"
@@ -78,7 +126,7 @@ build_docker_projects() {
   PROJECTS_DIR="$HOME/Projects"
   if [ ! -d "$PROJECTS_DIR" ]; then
     echo "Projects directory not found!"
-    return
+    return 1
   fi
   for repo in "$PROJECTS_DIR"/*; do
     if [ -d "$repo" ]; then
@@ -96,10 +144,11 @@ build_docker_projects() {
       else
         echo "No docker-compose file found in $repo_name, skipping..."
       fi
-      cd "$PROJECTS_DIR" || exit 1
+      cd "$PROJECTS_DIR" || return 1
       echo
     fi
   done
+  return 0
 }
 
 #######################################
@@ -117,6 +166,7 @@ https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sourc
   rm -f packages.microsoft.gpg
   sudo apt-get update -y
   sudo apt-get install -y code
+  return 0
 }
 
 deb_install_chrome() {
@@ -126,6 +176,7 @@ deb_install_chrome() {
   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
   sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -f install -y
   rm -f google-chrome-stable_current_amd64.deb
+  return 0
 }
 
 deb_install_nvm_node() {
@@ -137,6 +188,7 @@ deb_install_nvm_node() {
   echo "Node version: $(node -v)"
   echo "NVM current: $(nvm current)"
   echo "NPM version: $(npm -v)"
+  return 0
 }
 
 deb_install_dbeaver() {
@@ -145,6 +197,7 @@ deb_install_dbeaver() {
   echo "deb [signed-by=/usr/share/keyrings/dbeaver.gpg.key] https://dbeaver.io/debs/dbeaver-ce /" | sudo tee /etc/apt/sources.list.d/dbeaver.list
   sudo apt-get update -y
   sudo apt-get install -y dbeaver-ce
+  return 0
 }
 
 deb_install_zoom() {
@@ -174,6 +227,7 @@ deb_install_zoom() {
     ibus
   sudo gdebi -n zoom_amd64.deb
   rm -f zoom_amd64.deb
+  return 0
 }
 
 deb_install_docker() {
@@ -202,6 +256,7 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sou
   sudo systemctl enable docker.service
   sudo systemctl enable containerd.service
   echo "Docker installed. You must log out/in or run 'newgrp docker' to use Docker as non-root."
+  return 0
 }
 
 deb_install_openvpn3() {
@@ -212,6 +267,7 @@ deb_install_openvpn3() {
   echo "deb [signed-by=/etc/apt/keyrings/openvpn.asc] https://packages.openvpn.net/openvpn3/debian $DISTRO main" | sudo tee /etc/apt/sources.list.d/openvpn3.list
   sudo apt-get update -y
   sudo apt-get install -y openvpn3
+  return 0
 }
 
 deb_install_warp() {
@@ -219,6 +275,7 @@ deb_install_warp() {
   wget https://releases.warp.dev/stable/v0.2025.01.22.08.02.stable_05/warp-terminal_0.2025.01.22.08.02.stable.05_amd64.deb
   sudo dpkg -i warp-terminal_0.2025.01.22.08.02.stable.05_amd64.deb || sudo apt-get -f install -y
   rm -f warp-terminal_0.2025.01.22.08.02.stable.05_amd64.deb
+  return 0
 }
 
 deb_install_pyenv_and_python() {
@@ -246,6 +303,7 @@ deb_install_pyenv_and_python() {
               robotframework-seleniumlibrary \
               robotframework-selenium2library \
               psycopg2-binary
+  return 0
 }
 
 deb_install_rvm_and_ruby() {
@@ -271,6 +329,7 @@ deb_install_rvm_and_ruby() {
   gem install capistrano -v 3.16.0
   gem install capistrano-bundler capistrano-passenger capistrano-rails capistrano-nvm specific_install activesupport
   gem specific_install https://github.com/freddy-dev/rvm.git
+  return 0
 }
 
 deb_install_sublime() {
@@ -279,6 +338,7 @@ deb_install_sublime() {
   echo "deb https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sources.list.d/sublime-text.list
   sudo apt-get update -y
   sudo apt-get install -y sublime-text
+  return 0
 }
 
 #######################################
@@ -288,11 +348,13 @@ deb_install_sublime() {
 arch_update_system() {
   echo "Updating system (pacman -Syu)..."
   sudo pacman -Syu --noconfirm
+  return 0
 }
 
 arch_install_base_dev_git() {
   echo "Installing base-devel and git..."
   sudo pacman -S --needed --noconfirm base-devel git
+  return 0
 }
 
 arch_install_yay() {
@@ -302,20 +364,23 @@ arch_install_yay() {
     return 0
   fi
   git clone https://aur.archlinux.org/yay.git /tmp/yay
-  cd /tmp/yay || exit 1
+  cd /tmp/yay || return 1
   makepkg -si --noconfirm
-  cd - || exit 1
+  cd - || return 1
   echo "yay version: $(yay --version)"
+  return 0
 }
 
 arch_install_vscode() {
   echo "Installing Visual Studio Code (AUR)..."
   yay -S --noconfirm visual-studio-code-bin
+  return 0
 }
 
 arch_install_chrome() {
   echo "Installing Google Chrome (AUR)..."
   yay -S --noconfirm google-chrome
+  return 0
 }
 
 arch_install_nvm_node() {
@@ -327,16 +392,19 @@ arch_install_nvm_node() {
   echo "Node version: $(node -v)"
   echo "NVM current: $(nvm current)"
   echo "NPM version: $(npm -v)"
+  return 0
 }
 
 arch_install_dbeaver() {
   echo "Installing DBeaver..."
   sudo pacman -Sy --noconfirm dbeaver
+  return 0
 }
 
 arch_install_zoom() {
   echo "Installing Zoom (AUR)..."
   yay -S --noconfirm zoom
+  return 0
 }
 
 arch_install_docker() {
@@ -346,16 +414,19 @@ arch_install_docker() {
   sudo systemctl start docker.service
   sudo usermod -aG docker "$USER"
   echo "Docker installed. Log out/in (or use 'newgrp docker') to use Docker as non-root."
+  return 0
 }
 
 arch_install_openvpn3() {
   echo "Installing openvpn3 (AUR)..."
   yay -S --noconfirm openvpn3
+  return 0
 }
 
 arch_install_warp() {
   echo "Installing Warp Terminal (AUR)..."
   yay -S --noconfirm warp-terminal-bin
+  return 0
 }
 
 arch_install_pyenv_and_python() {
@@ -382,6 +453,7 @@ arch_install_pyenv_and_python() {
               robotframework-seleniumlibrary \
               robotframework-selenium2library \
               psycopg2-binary
+  return 0
 }
 
 arch_install_rvm_and_ruby() {
@@ -402,6 +474,7 @@ arch_install_rvm_and_ruby() {
   gem install capistrano -v 3.16.0
   gem install capistrano-bundler capistrano-passenger capistrano-rails capistrano-nvm specific_install activesupport
   gem specific_install https://github.com/freddy-dev/rvm.git
+  return 0
 }
 
 arch_install_sublime() {
@@ -412,6 +485,7 @@ arch_install_sublime() {
   rm sublimehq-pub.gpg
   echo -e "\n[sublime-text]\nServer = https://download.sublimetext.com/arch/stable/x86_64" | sudo tee -a /etc/pacman.conf
   sudo pacman -Syu --noconfirm sublime-text
+  return 0
 }
 
 #######################################
@@ -443,24 +517,24 @@ run_debian_ubuntu_flow() {
   if [[ $ROLE == "Developer" ]]; then
       default_apps=("Docker" "DBeaver" "OpenVPN3" "Sublime Text")
       echo "Installing default applications for Developer..."
-      deb_install_docker
-      deb_install_dbeaver
-      deb_install_openvpn3
-      deb_install_sublime
+      safe_call deb_install_docker
+      safe_call deb_install_dbeaver
+      safe_call deb_install_openvpn3
+      safe_call deb_install_sublime
   elif [[ $ROLE == "Tester" ]]; then
       default_apps=("DBeaver" "Sublime Text" "OpenVPN3" "RVM + Ruby" "PyEnv + Python")
       echo "Installing default applications for Tester..."
-      deb_install_dbeaver
-      deb_install_sublime
-      deb_install_openvpn3
-      deb_install_rvm_and_ruby
-      deb_install_pyenv_and_python
+      safe_call deb_install_dbeaver
+      safe_call deb_install_sublime
+      safe_call deb_install_openvpn3
+      safe_call deb_install_rvm_and_ruby
+      safe_call deb_install_pyenv_and_python
   elif [[ $ROLE == "Database" ]]; then
       default_apps=("DBeaver" "Sublime Text" "OpenVPN3")
       echo "Installing default applications for Database..."
-      deb_install_dbeaver
-      deb_install_sublime
-      deb_install_openvpn3
+      safe_call deb_install_dbeaver
+      safe_call deb_install_sublime
+      safe_call deb_install_openvpn3
   else
       default_apps=()
       echo "No default applications for Others."
@@ -511,12 +585,13 @@ run_debian_ubuntu_flow() {
     if [[ $index -ge 0 && $index -lt ${#additional_apps[@]} ]]; then
       app_name="${additional_apps[$index]}"
       echo "Installing $app_name..."
-      ${deb_apps[$app_name]}
+      safe_call "${deb_apps[$app_name]}"
     else
       echo "Invalid selection: $choice"
     fi
     echo
   done
+  return 0
 }
 
 #######################################
@@ -548,24 +623,24 @@ run_arch_flow() {
   if [[ $ROLE == "Developer" ]]; then
       default_apps=("Docker" "DBeaver" "OpenVPN3" "Sublime Text")
       echo "Installing default applications for Developer..."
-      arch_install_docker
-      arch_install_dbeaver
-      arch_install_openvpn3
-      arch_install_sublime
+      safe_call arch_install_docker
+      safe_call arch_install_dbeaver
+      safe_call arch_install_openvpn3
+      safe_call arch_install_sublime
   elif [[ $ROLE == "Tester" ]]; then
       default_apps=("DBeaver" "Sublime Text" "OpenVPN3" "RVM + Ruby" "PyEnv + Python")
       echo "Installing default applications for Tester..."
-      arch_install_dbeaver
-      arch_install_sublime
-      arch_install_openvpn3
-      arch_install_rvm_and_ruby
-      arch_install_pyenv_and_python
+      safe_call arch_install_dbeaver
+      safe_call arch_install_sublime
+      safe_call arch_install_openvpn3
+      safe_call arch_install_rvm_and_ruby
+      safe_call arch_install_pyenv_and_python
   elif [[ $ROLE == "Database" ]]; then
       default_apps=("DBeaver" "Sublime Text" "OpenVPN3")
       echo "Installing default applications for Database..."
-      arch_install_dbeaver
-      arch_install_sublime
-      arch_install_openvpn3
+      safe_call arch_install_dbeaver
+      safe_call arch_install_sublime
+      safe_call arch_install_openvpn3
   else
       default_apps=()
       echo "No default applications for Others."
@@ -619,12 +694,13 @@ run_arch_flow() {
     if [[ $index -ge 0 && $index -lt ${#additional_apps[@]} ]]; then
       app_name="${additional_apps[$index]}"
       echo "Installing $app_name..."
-      ${arch_apps[$app_name]}
+      safe_call "${arch_apps[$app_name]}"
     else
       echo "Invalid selection: $choice"
     fi
     echo
   done
+  return 0
 }
 
 #######################################
@@ -645,11 +721,11 @@ echo
 case "$DISTRO_CHOICE" in
   1|2)
     echo "Selected: Debian/Ubuntu"
-    run_debian_ubuntu_flow
+    safe_call run_debian_ubuntu_flow
     ;;
   3)
     echo "Selected: Arch"
-    run_arch_flow
+    safe_call run_arch_flow
     ;;
   *)
     echo "Invalid choice. Exiting..."
@@ -660,20 +736,19 @@ esac
 echo "========================================"
 echo "Now we'll set up (or confirm) your SSH key."
 echo "========================================"
-generate_ssh_key
+safe_call generate_ssh_key
 echo
 echo "Have you added your SSH key to Bitbucket (or your Git provider)?"
 pause
 echo
-clone_projects
+safe_call clone_projects
 
 # If the user's role is Developer, build docker projects in each repository (except channel_bay_design and pundit_lib).
 if [[ "$ROLE" == "Developer" ]]; then
-  build_docker_projects
+  safe_call build_docker_projects
 fi
 
 echo ""
 echo "Script finished!"
 echo "Remember to open a new terminal or log out/in for group memberships (e.g. Docker) or environment changes (PyEnv, RVM, NVM) to fully take effect."
 exit 0
-
