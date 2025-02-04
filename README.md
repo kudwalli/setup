@@ -1,4 +1,3 @@
-```markdown
 # Universal Linux Setup Script
 
 This repository contains an interactive Bash script designed to automate the setup of your development environment on Linux. It supports Debian, Ubuntu, and Arch Linux distributions and tailors installations based on your role (Developer, Tester, Database, or Others).
@@ -90,6 +89,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contact
 
 If you have any questions or need further assistance, please open an issue or contact the repository maintainer.
-```
+
 
 
