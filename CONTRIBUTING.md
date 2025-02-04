@@ -151,14 +151,6 @@ After the role-based installations:
 
 ---
 
-## Additional Resources
-
-- [Bash Scripting Guide (GNU)](https://www.gnu.org/software/bash/manual/bash.html)
-- [ShellCheck – A Shell Script Linter](https://www.shellcheck.net/)
-- [Best Practices for Bash Scripting](https://github.com/koalaman/shellcheck/wiki)
-
----
-
 ## Questions and Support
 
 If you have any questions, encounter issues, or need further assistance, please:
