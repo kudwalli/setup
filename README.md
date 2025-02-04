@@ -81,7 +81,7 @@ This script makes system-level changes and installs software packages. It is pro
 
 ## Contributing
 
-Contributions, suggestions, and improvements are welcome! Please submit issues or pull requests if you have any ideas or bug fixes.
+Interested in contributing? Please check out our [Contributor Guide](CONTRIBUTING.md) for detailed information on the project structure, coding guidelines, and how to get started.
 
 ## License
 
